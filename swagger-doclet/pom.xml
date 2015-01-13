@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.carma</groupId>
+        <groupId>com.github.bsnyder788</groupId>
 		<artifactId>swagger-doclet-parent</artifactId>
         <version>1.0.4-SNAPSHOT</version>
     </parent>
