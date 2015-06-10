@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.bsnyder788</groupId>
+        <groupId>com.carma</groupId>
 		<artifactId>swagger-doclet-parent</artifactId>
-        <version>1.0.4-SNAPSHOT</version>
+        <version>1.0.4-iland</version>
     </parent>
 
     <artifactId>swagger-doclet</artifactId>

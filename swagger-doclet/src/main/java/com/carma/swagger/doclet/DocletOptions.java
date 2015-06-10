@@ -649,6 +649,9 @@ public class DocletOptions {
             new AnnotationAwareTranslator(this).element(
                 "com.google.gson.annotations.SerializedName", "value"))
         .addNext(
+            new AnnotationAwareTranslator(this).element(
+                "com.iland.core.util.SerializedName", "value"))
+        .addNext(
             new AnnotationAwareTranslator(this)
                 .ignore("com.fasterxml.jackson.annotation.JsonIgnore")
                 .element("com.fasterxml.jackson.annotation.JsonProperty",
