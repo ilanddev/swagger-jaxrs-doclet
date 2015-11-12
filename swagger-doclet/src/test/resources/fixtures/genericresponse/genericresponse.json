@@ -19,33 +19,84 @@
                 },
                 {
                     "method": "GET",
+                    "nickname": "getOptional",
+                    "type": "Response",
+                    "parameters": [
+                        {
+                            "paramType": "query",
+                            "name": "name",
+                            "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "method": "GET",
+                    "nickname": "getOptional2",
+                    "type": "Response",
+                    "parameters": [
+                        {
+                            "paramType": "query",
+                            "name": "name",
+                            "type": "integer",
+                            "format" : "int32"
+                        }
+                    ]
+                },
+                {
+                    "method": "GET",
                     "nickname": "getIntMap",
                     "type": "Map"
                 },
                 {
                     "method": "GET",
                     "nickname": "getParameterized2",
-                    "type": "Response"
+                    "type": "Parameterized2"
+                },
+                {
+                    "method": "GET",
+                    "nickname": "getBatch",
+                    "type": "Batch"
+                },
+                {
+                    "method": "GET",
+                    "nickname": "getBatch2",
+                    "type": "Batch"
                 }
             ]
         }
     ]
     ,
     "models": {
-    	"Parameterized": {
-            "id": "Parameterized",
+        "Batch": {
+            "id": "Batch",
             "properties": {
-                "typedCol": {
+                "items": {
                     "type": "array",
+                    "uniqueItems": true,
                     "items": {
-                    	"type": "integer"
+                        "$ref": "Item"
                     }
                 },
-                "rtype": {
-                	"type": "integer",
-                	"format" : "int32"
+                "nextToken" : {
+                    "type": "string"
+                }
+            }
+        },
+        "Item": {
+            "id": "Item",
+            "properties": {
+                "id": {
+                    "type": "string"
                 },
-                "object": {
+                "desc": {
+                    "type": "string"
+                }
+            }
+        },
+        "Parameterized": {
+            "id": "Parameterized",
+            "properties": {
+            	"object": {
                     "type": "Object"
                 },
                 "typed": {
@@ -53,6 +104,17 @@
                 },
                 "parameterizedChild": {
                     "type": "Parameterized2"
+                },
+                "typedCol": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer",
+                        "format" : "int32"
+                    }
+                },
+                "rtype": {
+                    "type": "integer",
+                    "format" : "int32"
                 }
             }
         },

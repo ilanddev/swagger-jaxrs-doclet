@@ -45,8 +45,6 @@ public class CrossClassResourceListingTest {
 	@Test
 	public void testDefaultOrder() throws IOException {
 
-		this.options.getResourceDescriptionTags().clear();
-		this.options.getResourcePriorityTags().clear();
 		this.options.setSortResourcesByPath(false);
 		this.options.setSortResourcesByPriority(false);
 
@@ -64,18 +62,15 @@ public class CrossClassResourceListingTest {
 		final ApiDeclaration api3 = loadFixture("/fixtures/crossclassresourcelisting/c.json", ApiDeclaration.class);
 
 		List<ApiDeclaration> capturedApis = apis.getAllValues();
-		assertEquals(api3, capturedApis.get(0));
-		assertEquals(api1, capturedApis.get(2));
+		assertEquals(api1, capturedApis.get(0));
 		assertEquals(api2, capturedApis.get(1));
+		assertEquals(api3, capturedApis.get(2));
 
 	}
 
 	@Test
 	public void testPriorityOrder() throws IOException {
 
-		this.options.getResourceDescriptionTags().add("resourceDescription");
-		this.options.getResourcePriorityTags().add("resourcePriority");
-		this.options.getResourcePriorityTags().add("priority");
 		this.options.setSortResourcesByPath(false);
 		this.options.setSortResourcesByPriority(true);
 
@@ -90,8 +85,6 @@ public class CrossClassResourceListingTest {
 	@Test
 	public void testPathOrder() throws IOException {
 
-		this.options.getResourceDescriptionTags().add("resourceDescription");
-		this.options.getResourcePriorityTags().add("resourcePriority");
 		this.options.setSortResourcesByPath(true);
 		this.options.setSortResourcesByPriority(false);
 

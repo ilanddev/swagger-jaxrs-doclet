@@ -2,6 +2,8 @@ package com.carma.swagger.doclet.model;
 
 import java.util.List;
 
+import com.carma.swagger.doclet.parser.ParserHelper;
+
 public class Method {
 
 	private HttpMethod method;
@@ -10,9 +12,22 @@ public class Method {
 	private List<ApiResponseMessage> responseMessages;
 	private String summary;
 	private String notes;
+
 	private String returnType;
+	private String returnTypeFormat;
+
+	private String returnTypeMinimum;
+	private String returnTypeMaximum;
+	private String returnTypeDefaultValue;
+
+	private List<String> returnTypeAllowableValues;
+	private Boolean returnTypeUniqueItems;
+
 	private String returnTypeItemsRef;
 	private String returnTypeItemsType;
+	private String returnTypeItemsFormat;
+	private List<String> returnTypeItemsAllowableValues;
+
 	private String path;
 
 	private List<String> consumes;
@@ -27,18 +42,33 @@ public class Method {
 	}
 
 	public Method(HttpMethod method, String methodName, String path, List<ApiParameter> apiParameters, List<ApiResponseMessage> responseMessages,
-			String summary, String notes, String returnType, String returnTypeItemsRef, String returnTypeItemsType, List<String> consumes,
+			String summary, String notes, String returnType, String returnTypeFormat, String returnTypeMinimum, String returnTypeMaximum,
+			String returnTypeDefaultValue, List<String> returnTypeAllowableValues, Boolean returnTypeUniqueItems, String returnTypeItemsRef,
+			String returnTypeItemsType, String returnTypeItemsFormat, List<String> returnTypeItemsAllowableValues, List<String> consumes,
 			List<String> produces, OperationAuthorizations authorizations, boolean deprecated) {
 		this.method = method;
 		this.methodName = methodName;
-		this.path = path;
+		this.path = ParserHelper.sanitizePath(path);
 		this.apiParameters = apiParameters;
 		this.responseMessages = responseMessages;
 		this.summary = summary;
 		this.notes = notes;
+
 		this.returnType = returnType;
+		this.returnTypeFormat = returnTypeFormat;
+
+		this.returnTypeMinimum = returnTypeMinimum;
+		this.returnTypeMaximum = returnTypeMaximum;
+		this.returnTypeDefaultValue = returnTypeDefaultValue;
+
+		this.returnTypeAllowableValues = returnTypeAllowableValues;
+		this.returnTypeUniqueItems = returnTypeUniqueItems;
+
 		this.returnTypeItemsRef = returnTypeItemsRef;
 		this.returnTypeItemsType = returnTypeItemsType;
+		this.returnTypeItemsFormat = returnTypeItemsFormat;
+		this.returnTypeItemsAllowableValues = returnTypeItemsAllowableValues;
+
 		this.consumes = consumes;
 		this.produces = produces;
 		this.authorizations = authorizations;
@@ -90,6 +120,54 @@ public class Method {
 	}
 
 	/**
+	 * This gets the returnTypeFormat
+	 * @return the returnTypeFormat
+	 */
+	public String getReturnTypeFormat() {
+		return this.returnTypeFormat;
+	}
+
+	/**
+	 * This gets the returnTypeMinimum
+	 * @return the returnTypeMinimum
+	 */
+	public String getReturnTypeMinimum() {
+		return this.returnTypeMinimum;
+	}
+
+	/**
+	 * This gets the returnTypeMaximum
+	 * @return the returnTypeMaximum
+	 */
+	public String getReturnTypeMaximum() {
+		return this.returnTypeMaximum;
+	}
+
+	/**
+	 * This gets the returnTypeDefaultValue
+	 * @return the returnTypeDefaultValue
+	 */
+	public String getReturnTypeDefaultValue() {
+		return this.returnTypeDefaultValue;
+	}
+
+	/**
+	 * This gets the returnTypeAllowableValues
+	 * @return the returnTypeAllowableValues
+	 */
+	public List<String> getReturnTypeAllowableValues() {
+		return this.returnTypeAllowableValues;
+	}
+
+	/**
+	 * This gets the returnTypeUniqueItems
+	 * @return the returnTypeUniqueItems
+	 */
+	public Boolean getReturnTypeUniqueItems() {
+		return this.returnTypeUniqueItems;
+	}
+
+	/**
 	 * This gets the returnTypeItemsRef
 	 * @return the returnTypeItemsRef
 	 */
@@ -103,6 +181,22 @@ public class Method {
 	 */
 	public String getReturnTypeItemsType() {
 		return this.returnTypeItemsType;
+	}
+
+	/**
+	 * This gets the returnTypeItemsFormat
+	 * @return the returnTypeItemsFormat
+	 */
+	public String getReturnTypeItemsFormat() {
+		return this.returnTypeItemsFormat;
+	}
+
+	/**
+	 * This gets the returnTypeItemsAllowableValues
+	 * @return the returnTypeItemsAllowableValues
+	 */
+	public List<String> getReturnTypeItemsAllowableValues() {
+		return this.returnTypeItemsAllowableValues;
 	}
 
 	public boolean isSubResource() {
@@ -160,6 +254,8 @@ public class Method {
 		result = prime * result + ((this.produces == null) ? 0 : this.produces.hashCode());
 		result = prime * result + ((this.responseMessages == null) ? 0 : this.responseMessages.hashCode());
 		result = prime * result + ((this.returnType == null) ? 0 : this.returnType.hashCode());
+		result = prime * result + ((this.returnTypeFormat == null) ? 0 : this.returnTypeFormat.hashCode());
+		result = prime * result + ((this.returnTypeItemsFormat == null) ? 0 : this.returnTypeItemsFormat.hashCode());
 		result = prime * result + ((this.returnTypeItemsRef == null) ? 0 : this.returnTypeItemsRef.hashCode());
 		result = prime * result + ((this.returnTypeItemsType == null) ? 0 : this.returnTypeItemsType.hashCode());
 		result = prime * result + ((this.summary == null) ? 0 : this.summary.hashCode());
@@ -251,6 +347,20 @@ public class Method {
 		} else if (!this.returnType.equals(other.returnType)) {
 			return false;
 		}
+		if (this.returnTypeFormat == null) {
+			if (other.returnTypeFormat != null) {
+				return false;
+			}
+		} else if (!this.returnTypeFormat.equals(other.returnTypeFormat)) {
+			return false;
+		}
+		if (this.returnTypeItemsFormat == null) {
+			if (other.returnTypeItemsFormat != null) {
+				return false;
+			}
+		} else if (!this.returnTypeItemsFormat.equals(other.returnTypeItemsFormat)) {
+			return false;
+		}
 		if (this.returnTypeItemsRef == null) {
 			if (other.returnTypeItemsRef != null) {
 				return false;
@@ -282,9 +392,10 @@ public class Method {
 	@Override
 	public String toString() {
 		return "Method [method=" + this.method + ", methodName=" + this.methodName + ", apiParameters=" + this.apiParameters + ", responseMessages="
-				+ this.responseMessages + ", summary=" + this.summary + ", notes=" + this.notes + ", returnType=" + this.returnType + ", returnTypeItemsRef="
-				+ this.returnTypeItemsRef + ", returnTypeItemsType=" + this.returnTypeItemsType + ", path=" + this.path + ", consumes=" + this.consumes
-				+ ", produces=" + this.produces + ", authorizations=" + this.authorizations + ", deprecated=" + this.deprecated + "]";
+				+ this.responseMessages + ", summary=" + this.summary + ", notes=" + this.notes + ", returnType=" + this.returnType + ", returnTypeFormat="
+				+ this.returnTypeFormat + ", returnTypeItemsRef=" + this.returnTypeItemsRef + ", returnTypeItemsType=" + this.returnTypeItemsType
+				+ ", returnTypeItemsFormat=" + this.returnTypeItemsFormat + ", path=" + this.path + ", consumes=" + this.consumes + ", produces="
+				+ this.produces + ", authorizations=" + this.authorizations + ", deprecated=" + this.deprecated + "]";
 	}
 
 }

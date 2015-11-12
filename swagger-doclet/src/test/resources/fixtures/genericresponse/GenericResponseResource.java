@@ -5,6 +5,7 @@ import java.util.Map;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 
 import com.sun.jersey.api.JResponse;
@@ -29,15 +30,38 @@ public class GenericResponseResource {
 	}
 
 	@GET
+	public Response getOptional(@QueryParam("name") com.google.common.base.Optional<String> name) {
+		return null;
+	}
+
+	@GET
+	public Response getOptional2(@QueryParam("name") jersey.repackaged.com.google.common.base.Optional<Integer> name) {
+		return null;
+	}
+
+	@GET
 	public Map<String, Integer> getIntMap() {
 		return Collections.emptyMap();
 	}
 
 	/**
-	 * @returnType fixtures.genericresponse.Parameterized2
+	 * @returnType fixtures.genericresponse.Parameterized2<java.lang.Integer>
 	 */
 	@GET
 	public Response getParameterized2() {
+		return null;
+	}
+
+	@GET
+	public Batch<Item> getBatch() {
+		return null;
+	}
+
+	/**
+	 * @returnType fixtures.genericresponse.Batch<fixtures.genericresponse.Item>
+	 */
+	@GET
+	public Response getBatch2() {
 		return null;
 	}
 }

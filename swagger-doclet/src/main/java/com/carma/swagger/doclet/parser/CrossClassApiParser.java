@@ -1,7 +1,6 @@
 package com.carma.swagger.doclet.parser;
 
-import static com.carma.swagger.doclet.parser.ParserHelper.parsePath;
-import static com.google.common.base.Objects.firstNonNull;
+import static com.google.common.base.Objects.equal;
 import static com.google.common.collect.Maps.uniqueIndex;
 
 import java.util.ArrayList;
@@ -21,7 +20,6 @@ import com.carma.swagger.doclet.model.Operation;
 import com.google.common.base.Function;
 import com.sun.javadoc.ClassDoc;
 import com.sun.javadoc.MethodDoc;
-import com.sun.javadoc.ParameterizedType;
 import com.sun.javadoc.Tag;
 import com.sun.javadoc.Type;
 
@@ -42,22 +40,29 @@ public class CrossClassApiParser {
 	private final String basePath;
 
 	private final Method parentMethod;
+	private final Map<Type, ClassDoc> subResourceClasses;
+	private final Collection<ClassDoc> typeClasses;
 
 	/**
 	 * This creates a CrossClassApiParser for top level parsing
 	 * @param options The options for parsing
 	 * @param classDoc The class doc
-	 * @param classes The doclet classes
+	 * @param classes The doclet classes to document
+	 * @param typeClasses Extra type classes that can be used as generic parameters
+	 * @param subResourceClasses Sub resource doclet classes
 	 * @param swaggerVersion Swagger version
 	 * @param apiVersion Overall API version
 	 * @param basePath Overall base path
 	 */
-	public CrossClassApiParser(DocletOptions options, ClassDoc classDoc, Collection<ClassDoc> classes, String swaggerVersion, String apiVersion, String basePath) {
+	public CrossClassApiParser(DocletOptions options, ClassDoc classDoc, Collection<ClassDoc> classes, Map<Type, ClassDoc> subResourceClasses,
+			Collection<ClassDoc> typeClasses, String swaggerVersion, String apiVersion, String basePath) {
 		super();
 		this.options = options;
 		this.classDoc = classDoc;
 		this.classes = classes;
-		this.rootPath = firstNonNull(parsePath(classDoc, options), "");
+		this.typeClasses = typeClasses;
+		this.subResourceClasses = subResourceClasses;
+		this.rootPath = ParserHelper.resolveClassPath(classDoc, options);
 		this.swaggerVersion = swaggerVersion;
 		this.apiVersion = apiVersion;
 		this.basePath = basePath;
@@ -68,20 +73,24 @@ public class CrossClassApiParser {
 	 * This creates a CrossClassApiParser for parsing a subresource
 	 * @param options The options for parsing
 	 * @param classDoc The class doc
-	 * @param classes The doclet classes
+	 * @param classes The doclet classes to document
+	 * @param typeClasses Extra type classes that can be used as generic parameters
+	 * @param subResourceClasses Sub resource doclet classes
 	 * @param swaggerVersion Swagger version
 	 * @param apiVersion Overall API version
 	 * @param basePath Overall base path
 	 * @param parentMethod The parent method that "owns" this sub resource
 	 * @param parentResourcePath The parent resource path
 	 */
-	public CrossClassApiParser(DocletOptions options, ClassDoc classDoc, Collection<ClassDoc> classes, String swaggerVersion, String apiVersion,
-			String basePath, Method parentMethod, String parentResourcePath) {
+	public CrossClassApiParser(DocletOptions options, ClassDoc classDoc, Collection<ClassDoc> classes, Map<Type, ClassDoc> subResourceClasses,
+			Collection<ClassDoc> typeClasses, String swaggerVersion, String apiVersion, String basePath, Method parentMethod, String parentResourcePath) {
 		super();
 		this.options = options;
 		this.classDoc = classDoc;
 		this.classes = classes;
-		this.rootPath = parentResourcePath + firstNonNull(parsePath(classDoc, options), "");
+		this.typeClasses = typeClasses;
+		this.subResourceClasses = subResourceClasses;
+		this.rootPath = parentResourcePath + ParserHelper.resolveClassPath(classDoc, options);
 		this.swaggerVersion = swaggerVersion;
 		this.apiVersion = apiVersion;
 		this.basePath = basePath;
@@ -102,11 +111,39 @@ public class CrossClassApiParser {
 	 */
 	public void parse(Map<String, ApiDeclaration> declarations) {
 
+		Collection<ClassDoc> allClasses = new ArrayList<ClassDoc>();
+		allClasses.addAll(this.classes);
+		allClasses.addAll(this.typeClasses);
+
+		ClassDocCache classCache = new ClassDocCache(allClasses);
+
+		// see if this is a resource class, it is if either it has class level @Path or has @GET etc on one of its methods
+		// (sub resource classes don't have @Path but will have method annotations)
+		if (this.rootPath.isEmpty()) {
+			boolean methodFound = false;
+			for (MethodDoc method : this.classDoc.methods()) {
+				if (ParserHelper.resolveMethodHttpMethod(method) != null) {
+					methodFound = true;
+					break;
+				}
+			}
+			if (!methodFound) {
+				if (this.options.isLogDebug()) {
+					System.out.println("ignoring non resource class: " + this.classDoc.name());
+				}
+				return;
+			}
+		}
+
 		ClassDoc currentClassDoc = this.classDoc;
 		while (currentClassDoc != null) {
 
+			if (this.options.isLogDebug()) {
+				System.out.println("processing resource class: " + currentClassDoc.name());
+			}
+
 			// read default error type for class
-			String defaultErrorTypeClass = ParserHelper.getTagValue(currentClassDoc, this.options.getDefaultErrorTypeTags(), this.options);
+			String defaultErrorTypeClass = ParserHelper.getInheritableTagValue(currentClassDoc, this.options.getDefaultErrorTypeTags(), this.options);
 			Type defaultErrorType = ParserHelper.findModel(this.classes, defaultErrorTypeClass);
 
 			Set<Model> classModels = new HashSet<Model>();
@@ -115,24 +152,34 @@ public class CrossClassApiParser {
 			}
 
 			// read class level resource path, priority and description
-			String classResourcePath = ParserHelper.getTagValue(currentClassDoc, this.options.getResourceTags(), this.options);
-			String classResourcePriority = ParserHelper.getTagValue(currentClassDoc, this.options.getResourcePriorityTags(), this.options);
-			String classResourceDescription = ParserHelper.getTagValue(currentClassDoc, this.options.getResourceDescriptionTags(), this.options);
+			String classResourcePath = ParserHelper.getInheritableTagValue(currentClassDoc, this.options.getResourceTags(), this.options);
+			String classResourcePriority = ParserHelper.getInheritableTagValue(currentClassDoc, this.options.getResourcePriorityTags(), this.options);
+			String classResourceDescription = ParserHelper.getInheritableTagValue(currentClassDoc, this.options.getResourceDescriptionTags(), this.options);
 
 			// check if its a sub resource
-			// TODO: be more deterministic e.g. build map of sub resource types that are explicitly referenced
-			boolean isSubResourceClass = (getRootPath() == null || getRootPath().isEmpty()) && !currentClassDoc.isAbstract();
+			boolean isSubResourceClass = this.subResourceClasses != null && this.subResourceClasses.values().contains(currentClassDoc);
 
 			// dont process a subresource outside the context of its parent method
 			if (isSubResourceClass && this.parentMethod == null) {
 				// skip
+				if (this.options.isLogDebug()) {
+					System.out.println("skipping class as its a sub resource class and we are outside of the parent method context.");
+				}
 			} else {
 				for (MethodDoc method : currentClassDoc.methods()) {
-					ApiMethodParser methodParser = this.parentMethod == null ? new ApiMethodParser(this.options, this.rootPath, method, this.classes,
-							defaultErrorTypeClass) : new ApiMethodParser(this.options, this.parentMethod, method, this.classes, defaultErrorTypeClass);
+
+					if (this.options.isLogDebug()) {
+						System.out.println("processing method: " + method.name());
+					}
+
+					ApiMethodParser methodParser = this.parentMethod == null ? new ApiMethodParser(this.options, this.rootPath, method, allClasses,
+							defaultErrorTypeClass) : new ApiMethodParser(this.options, this.parentMethod, method, allClasses, defaultErrorTypeClass);
 
 					Method parsedMethod = methodParser.parse();
 					if (parsedMethod == null) {
+						if (this.options.isLogDebug()) {
+							System.out.println("skipping method: " + method.name() + " as it was not parsed to an api method");
+						}
 						continue;
 					}
 
@@ -141,18 +188,18 @@ public class CrossClassApiParser {
 					String resourcePath = buildResourcePath(classResourcePath, method);
 
 					if (parsedMethod.isSubResource()) {
-						ClassDoc subResourceClassDoc = lookUpClassDoc(method.returnType());
+						if (this.options.isLogDebug()) {
+							System.out.println("parsing method: " + method.name() + " as a subresource");
+						}
+						ClassDoc subResourceClassDoc = classCache.findByType(method.returnType());
 						if (subResourceClassDoc != null) {
 							// delete class from the dictionary to handle recursive sub-resources
 							Collection<ClassDoc> shrunkClasses = new ArrayList<ClassDoc>(this.classes);
 							shrunkClasses.remove(currentClassDoc);
 							// recursively parse the sub-resource class
 							CrossClassApiParser subResourceParser = new CrossClassApiParser(this.options, subResourceClassDoc, shrunkClasses,
-									this.swaggerVersion, this.apiVersion, this.basePath, parsedMethod, resourcePath);
+									this.subResourceClasses, this.typeClasses, this.swaggerVersion, this.apiVersion, this.basePath, parsedMethod, resourcePath);
 							subResourceParser.parse(declarations);
-						} else {
-							System.err.println("Failed to lookup sub resource class doc: " + method.returnType() + " looked up type is: "
-									+ lookUpClassDoc(method.returnType()));
 						}
 						continue;
 					}
@@ -163,6 +210,13 @@ public class CrossClassApiParser {
 						declaration.setApis(new ArrayList<Api>());
 						declaration.setModels(new HashMap<String, Model>());
 						declarations.put(resourcePath, declaration);
+						if (this.options.isLogDebug()) {
+							System.out.println("creating new api declaration for method: " + method.name());
+						}
+					} else {
+						if (this.options.isLogDebug()) {
+							System.out.println("reusing api declaration (" + declaration.getResourcePath() + ") for method: " + method.name());
+						}
 					}
 
 					// look for a priority tag for the resource listing and set on the resource if the resource hasn't had one set
@@ -178,6 +232,10 @@ public class CrossClassApiParser {
 					Set<Model> methodModels = methodParser.models();
 					Map<String, Model> idToModels = addApiModels(classModels, methodModels, method);
 					declaration.getModels().putAll(idToModels);
+
+					if (this.options.isLogDebug()) {
+						System.out.println("finished processing for method: " + method.name());
+					}
 				}
 			}
 			currentClassDoc = currentClassDoc.superclass();
@@ -206,9 +264,16 @@ public class CrossClassApiParser {
 				}
 			}
 		}
-		if (resourcePath != null && !resourcePath.startsWith("/")) {
-			resourcePath = "/" + resourcePath;
+
+		// sanitize the path and ensure it starts with /
+		if (resourcePath != null) {
+			resourcePath = ParserHelper.sanitizePath(resourcePath);
+
+			if (!resourcePath.startsWith("/")) {
+				resourcePath = "/" + resourcePath;
+			}
 		}
+
 		return resourcePath;
 	}
 
@@ -223,14 +288,16 @@ public class CrossClassApiParser {
 				}
 			});
 		} catch (Exception ex) {
-			throw new IllegalStateException("dupe models, method : " + method + ", models: " + methodModels, ex);
+			throw new IllegalStateException(
+					"Detected duplicate models, if you use classes with the same name from different packages please set the doclet option -useFullModelIds and retry. The problematic method was : "
+							+ method + ", and models were: " + methodModels, ex);
 		}
 		return idToModels;
 	}
 
 	private void setApiPriority(String classResourcePriority, MethodDoc method, ClassDoc currentClassDoc, ApiDeclaration declaration) {
 		int priorityVal = Integer.MAX_VALUE;
-		String priority = ParserHelper.getTagValue(method, this.options.getResourcePriorityTags(), this.options);
+		String priority = ParserHelper.getInheritableTagValue(method, this.options.getResourcePriorityTags(), this.options);
 		if (priority != null) {
 			priorityVal = Integer.parseInt(priority);
 		} else if (classResourcePriority != null) {
@@ -244,7 +311,7 @@ public class CrossClassApiParser {
 	}
 
 	private void setApiDeclarationDescription(String classResourceDescription, MethodDoc method, ApiDeclaration declaration) {
-		String description = ParserHelper.getTagValue(method, this.options.getResourceDescriptionTags(), this.options);
+		String description = ParserHelper.getInheritableTagValue(method, this.options.getResourceDescriptionTags(), this.options);
 		if (description == null) {
 			description = classResourceDescription;
 		}
@@ -263,7 +330,7 @@ public class CrossClassApiParser {
 		}
 
 		// read api level description
-		String apiDescription = ParserHelper.getTagValue(method, this.options.getApiDescriptionTags(), this.options);
+		String apiDescription = ParserHelper.getInheritableTagValue(method, this.options.getApiDescriptionTags(), this.options);
 
 		if (methodApi == null) {
 			methodApi = new Api(parsedMethod.getPath(), this.options.replaceVars(apiDescription), new ArrayList<Operation>());
@@ -272,27 +339,20 @@ public class CrossClassApiParser {
 			methodApi.setDescription(apiDescription);
 		}
 
-		methodApi.getOperations().add(new Operation(parsedMethod));
-	}
-
-	private ClassDoc lookUpClassDoc(Type type) {
-		for (ClassDoc subResourceClassDoc : this.classes) {
-			String typeName = type.qualifiedTypeName();
-
-			// look for Class<X> way of referencing sub resources
-			ParameterizedType pt = type.asParameterizedType();
-			if (pt != null && typeName.equals("java.lang.Class")) {
-				Type[] typeArgs = pt.typeArguments();
-				if (typeArgs != null && typeArgs.length == 1) {
-					typeName = typeArgs[0].qualifiedTypeName();
-				}
-			}
-
-			if (subResourceClassDoc.qualifiedTypeName().equals(typeName)) {
-				return subResourceClassDoc;
+		boolean alreadyAdded = false;
+		// skip already added declarations
+		for (Operation operation : methodApi.getOperations()) {
+			boolean opParamsEmptyOrNull = operation.getParameters() == null || operation.getParameters().isEmpty();
+			boolean parsedParamsEmptyOrNull = parsedMethod.getParameters() == null || parsedMethod.getParameters().isEmpty();
+			if (operation.getMethod().equals(parsedMethod.getMethod())
+					&& ((parsedParamsEmptyOrNull && opParamsEmptyOrNull) || (!opParamsEmptyOrNull && !parsedParamsEmptyOrNull && operation.getParameters()
+							.size() == parsedMethod.getParameters().size())) && equal(operation.getNickname(), parsedMethod.getMethodName())) {
+				alreadyAdded = true;
 			}
 		}
-		return null;
+		if (!alreadyAdded) {
+			methodApi.getOperations().add(new Operation(parsedMethod));
+		}
 	}
 
 }
