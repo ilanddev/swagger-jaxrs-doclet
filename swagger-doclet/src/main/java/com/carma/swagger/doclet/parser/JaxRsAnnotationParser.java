@@ -40,7 +40,7 @@ public class JaxRsAnnotationParser {
 	// diffs between 1.1 and 1.2 see https://github.com/wordnik/swagger-spec/wiki/1.2-transition
 	private static final String SWAGGER_VERSION = "1.2";
 
-	private static final String SWAGGER_UI_VERSION = "2.1.0";
+	private static final String SWAGGER_UI_VERSION = "2.2.10";
 
 	private final DocletOptions options;
 	private final RootDoc rootDoc;
